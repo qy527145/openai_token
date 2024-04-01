@@ -1,0 +1,4 @@
+requests
+DrissionPage
+click
+pyinstaller
