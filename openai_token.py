@@ -136,7 +136,7 @@ class TokenManager:
     def get_preauth_cookie():
         # fakeopen已挂
         # return requests.get('https://ai.fakeopen.com/auth/preauth').json().get('preauth_cookie')
-        return requests.get('https://xq6174.serv00.net/preauth.php').json().get('preauth_cookie')
+        return input("暂不提供preauth_cookie在线获取，请手动输入:")
 
     def generate_access_token(self):
         resp = requests.post('https://token.oaifree.com/api/auth/refresh', data={
