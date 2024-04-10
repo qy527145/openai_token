@@ -23,7 +23,7 @@ Options:
 
 1. 准备一台ios设备，想办法获取device token，详见[官方文档](https://developer.apple.com/documentation/devicecheck/dcdevice/generatetoken(completionhandler:))
 
-2. 准备一个能访问openai的代理，发起以下请求即可得到preauth_cookie（device_id可自行修改）
+2. 准备一个能访问openai的代理，发起以下请求即可得到preauth_cookie（device_id可自行修改）,就cookie而言是1小时后过期
 
    ```python
    rsp = requests.post(
