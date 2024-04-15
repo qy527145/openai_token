@@ -2,11 +2,15 @@ import base64
 import hashlib
 import json
 import os
+import random
+import string
 import time
+from urllib.parse import urlparse
 
 import click
 import requests
-from DrissionPage import WebPage, ChromiumOptions
+from DrissionPage import ChromiumOptions
+from DrissionPage._pages.web_page import WebPage
 
 
 def to_time(t: int = None):
@@ -21,11 +25,13 @@ class TokenManager:
     def __init__(
             self,
             refresh_token=None,
+            device_token=None,
             refresh_interval=60,
             storage_path='./token.json',
-            proxy='http://127.0.0.1:1082',
+            proxy='http://127.0.0.1:10809',
     ):
         self.refresh_token = refresh_token
+        self.device_token = device_token
         self.refresh_interval = refresh_interval
         self.access_token = None
         self.storage_path = storage_path
@@ -36,6 +42,7 @@ class TokenManager:
         else:
             self.proxy = None
         self.load_token()
+        self.save_token()
 
     def get_refresh_token(self):
         self.ensure_refresh_token()
@@ -74,9 +81,7 @@ class TokenManager:
 
     def refresh(self):
         self.ensure_refresh_token()
-        if self.is_expired():
-            self.access_token = self.generate_access_token()
-        self.save_token()
+        self.access_token = self.generate_access_token()
 
     def ensure_refresh_token(self):
         if self.refresh_token:
@@ -84,6 +89,8 @@ class TokenManager:
         code_verifier = self.generate_code_verifier()
         code_challenge = self.generate_code_challenge(code_verifier)
         preauth_cookie = self.get_preauth_cookie()
+        if not preauth_cookie:
+            raise Exception('抓取preauth_cookie失败')
         url = f'https://auth0.openai.com/authorize' \
               f'?client_id=pdlLIX2Y72MIl2rhLhTE9VV9bN905kBh' \
               f'&audience=https%3A%2F%2Fapi.openai.com%2Fv1' \
@@ -101,7 +108,11 @@ class TokenManager:
         page.get(url)
         page.listen.start('com.openai.chat://auth0.openai.com/ios/com.openai.chat/callback')
         res = page.listen.wait()
-        code = res.url.split('code=')[1]
+        query1 = {args.split('=')[0]: args.split('=')[1] for args in urlparse(res.url).query.split('&')}
+        code = query1.get('code')
+        if not code:
+            raise Exception('preauth_cookie已过期')
+        # state = query1['state']
         page.close()
         resp_json = requests.post('https://auth0.openai.com/oauth/token', json={
             'redirect_uri': 'com.openai.chat://auth0.openai.com/ios/com.openai.chat/callback',
@@ -110,10 +121,10 @@ class TokenManager:
             'code': code,
             'code_verifier': code_verifier
         }, proxies=self.proxy).json()
+        # json.dump(resp_json, open('./app.json', 'w'))
         # print(json.dumps(resp_json, indent=2))
         self.refresh_token = resp_json.get('refresh_token')
-        self.access_token = resp_json.get('access_token')
-        # self.id_token = resp_json.get('id_token')
+        self.save_token()
 
     def revoke_refresh_token(self, refresh_token):
         resp = requests.post('https://auth0.openai.com/oauth/revoke', json={
@@ -121,6 +132,8 @@ class TokenManager:
             'token': refresh_token
         }, proxies=self.proxy)
         assert resp.status_code == 200
+        self.refresh_token = None
+        self.save_token()
 
     @staticmethod
     def generate_code_verifier():
@@ -132,20 +145,51 @@ class TokenManager:
         m.update(code_verifier.encode())
         return base64.urlsafe_b64encode(m.digest()).decode().rstrip('=')
 
-    @staticmethod
-    def get_preauth_cookie():
+    def get_preauth_cookie(self):
         # fakeopen已挂
         # return requests.get('https://ai.fakeopen.com/auth/preauth').json().get('preauth_cookie')
-        return input("暂不提供preauth_cookie在线获取，请手动输入:")
+        if self.device_token:
+            rsp = requests.post(
+                'https://ios.chat.openai.com/backend-api/preauth_devicecheck',
+                json={
+                    "bundle_id": "com.openai.chat",
+                    "device_id": "62345678-042E-45C7-962F-AC725D0E7770",
+                    "device_token": self.device_token,
+                    "request_flag": True
+                },
+                proxies=self.proxy
+            )
+            if rsp.status_code == 200 and rsp.json().get('is_ok'):
+                return rsp.cookies.get('_preauth_devicecheck')
+        raise Exception('抓取preauth_cookie失败')
 
     def generate_access_token(self):
+        self.ensure_refresh_token()
         resp = requests.post('https://token.oaifree.com/api/auth/refresh', data={
             'refresh_token': self.refresh_token
         })
         if resp.status_code == 200:
-            return resp.json().get('access_token')
+            access_token = resp.json().get('access_token')
+            self.access_token = access_token
+            self.save_token()
+            return access_token
         else:
             return self.generate_access_token_old()
+
+    def generate_share_token(self, unique_name='share_token'):
+        # share_token的有效期还取决于access_token
+        resp = requests.post('https://chat.oaifree.com/token/register', data={
+            'unique_name': unique_name,
+            'access_token': self.get_access_token(),
+            'expires_in': 20,
+            'site_limit': None,
+            'gpt35_limit': -1,
+            'gpt4_limit': -1,
+            'show_conversations': True,
+            'show_userinfo': False,
+            'reset_limit': True,
+        })
+        return resp.json().get('token_key')
 
     def generate_access_token_old(self):
         resp = requests.post(
@@ -159,7 +203,10 @@ class TokenManager:
             headers={'Content-Type': 'application/json'},
             proxies=self.proxy)
         if resp.status_code == 200:
-            return resp.json().get('access_token')
+            access_token = resp.json().get('access_token')
+            self.access_token = access_token
+            self.save_token()
+            return access_token
 
     def load_token(self):
         if os.path.exists(self.storage_path):
@@ -169,21 +216,29 @@ class TokenManager:
                     self.access_token = token_json.get('access_token')
                 if not self.refresh_token:
                     self.refresh_token = token_json.get('refresh_token')
+                if not self.device_token:
+                    self.device_token = token_json.get('device_token')
 
     def save_token(self):
-        if not self.access_token:
-            return
         with open(self.storage_path, 'w') as file:
-            json.dump({'refresh_token': self.refresh_token, 'access_token': self.access_token}, file, indent=2)
+            json.dump({
+                'device_token': self.device_token,
+                'refresh_token': self.refresh_token,
+                'access_token': self.access_token
+            }, file, indent=2)
 
 
 @click.command()
 @click.option('--proxy', "-p", help='A http proxy str. (http://127.0.0.1:8080)', required=False)
-@click.option("--refresh_token", "-r", help='Get refresh token.', is_flag=True)
-@click.option("--access_token", "-a", help='Get access token.', is_flag=True)
-@click.option("--sess_key", "-s", help='Get sess key.', is_flag=True)
-def cli(proxy, refresh_token, access_token, sess_key):
-    obj = TokenManager(proxy=proxy)
+@click.option("--refresh-token", "-r", help='Get refresh token.', is_flag=True)
+@click.option("--access-token", "-a", help='Get access token.', is_flag=True)
+@click.option("--sess-key", "-s", help='Get sess key.', is_flag=True)
+@click.option("--fake-token", "-f", help='Get share key.', is_flag=True)
+def cli(proxy, refresh_token, access_token, sess_key, fake_token):
+    if proxy:
+        obj = TokenManager(proxy=proxy)
+    else:
+        obj = TokenManager()
     if refresh_token:
         print("refresh_token: ", obj.get_refresh_token())
     if access_token:
@@ -194,6 +249,9 @@ def cli(proxy, refresh_token, access_token, sess_key):
         print({"access_token": obj.get_access_token(), 'expired': to_time(exp)})
     if sess_key:
         print(obj.get_sess_key())
+    if fake_token:
+        unique_name = ''.join(random.sample(string.ascii_letters + string.digits, 16))
+        print({"unique_name": unique_name, "share_token": obj.generate_share_token(unique_name)})
 
 
 if __name__ == '__main__':
