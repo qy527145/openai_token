@@ -230,17 +230,17 @@ class TokenManager:
 
 @click.command()
 @click.option('--proxy', "-p", help='A http proxy str. (http://127.0.0.1:8080)', required=False)
-@click.option("--refresh-token", "-r", help='Get refresh token.', is_flag=True)
-@click.option("--access-token", "-a", help='Get access token.', is_flag=True)
-@click.option("--sess-key", "-s", help='Get sess key.', is_flag=True)
-@click.option("--fake-token", "-f", help='Get share key.', is_flag=True)
-def cli(proxy, refresh_token, access_token, sess_key, fake_token):
+@click.option("--refresh_token", "-r", help='Get refresh token.', is_flag=True)
+@click.option("--access_token", "-a", help='Get access token.', is_flag=True)
+@click.option("--sess_key", "-s", help='Get sess key.', is_flag=True)
+@click.option("--share_token", "-f", help='Get share key.', is_flag=True)
+def cli(proxy, refresh_token, access_token, sess_key, share_token):
     if proxy:
         obj = TokenManager(proxy=proxy)
     else:
         obj = TokenManager()
     if refresh_token:
-        print("refresh_token: ", obj.get_refresh_token())
+        print({"refresh_token": obj.get_refresh_token()})
     if access_token:
         _access_token = obj.get_access_token()
         payload = _access_token.split('.')[1]
@@ -249,9 +249,9 @@ def cli(proxy, refresh_token, access_token, sess_key, fake_token):
         print({"access_token": obj.get_access_token(), 'expired': to_time(exp)})
     if sess_key:
         print(obj.get_sess_key())
-    if fake_token:
+    if share_token:
         unique_name = ''.join(random.sample(string.ascii_letters + string.digits, 16))
-        print({"unique_name": unique_name, "share_token": obj.generate_share_token(unique_name)})
+        print({"share_token": obj.generate_share_token(unique_name), "unique_name": unique_name})
 
 
 if __name__ == '__main__':
