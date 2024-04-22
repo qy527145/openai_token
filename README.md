@@ -1,4 +1,22 @@
+# 本地使用
+
+首先克隆本项目
+```bash
+git clone https://github.com/qy527145/openai_token.git
+```
+
+然后进入文件夹
+```bash
+cd openai_token
+```
+
+然后使用pip下载所需Python包
+```python
+pip install -r requirements.txt
+```
+
 # 食用方法
+
 ```
 Usage: openai_token.py [OPTIONS]
 
@@ -46,3 +64,6 @@ Options:
 
    - 同一preauth_cookie多次用来获取refresh token
    - 同一device token生成的preauth_cookie用于大量用户账号登录
+# 许可证
+
+本项目使用[Apache License Version 2.0](LICENSE)许可证
