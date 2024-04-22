@@ -1,16 +1,16 @@
 # 本地使用
 
-首先克隆本项目
+1. 首先克隆本项目
 ```bash
 git clone https://github.com/qy527145/openai_token.git
 ```
 
-然后进入文件夹
+2. 然后进入文件夹
 ```bash
 cd openai_token
 ```
 
-然后使用pip下载所需Python包
+3. 然后使用pip下载所需Python包
 ```python
 pip install -r requirements.txt
 ```
