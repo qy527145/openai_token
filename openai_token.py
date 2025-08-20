@@ -91,17 +91,30 @@ class TokenManager:
         preauth_cookie = self.get_preauth_cookie()
         if not preauth_cookie:
             raise Exception('抓取preauth_cookie失败')
-        url = f'https://auth0.openai.com/authorize' \
-              f'?client_id=pdlLIX2Y72MIl2rhLhTE9VV9bN905kBh' \
-              f'&audience=https%3A%2F%2Fapi.openai.com%2Fv1' \
-              f'&redirect_uri=com.openai.chat%3A%2F%2Fauth0.openai.com%2Fios%2Fcom.openai.chat%2Fcallback' \
-              f'&scope=openid%20email%20profile%20offline_access%20model.request%20model.read%20organization.read%20offline' \
-              f'&response_type=code' \
-              f'&code_challenge={code_challenge}' \
-              f'&code_challenge_method=S256' \
-              f'&preauth_cookie={preauth_cookie}'
+        # url = f'https://auth0.openai.com/authorize' \
+        #       f'?client_id=pdlLIX2Y72MIl2rhLhTE9VV9bN905kBh' \
+        #       f'&audience=https%3A%2F%2Fapi.openai.com%2Fv1' \
+        #       f'&redirect_uri=com.openai.chat%3A%2F%2Fauth0.openai.com%2Fios%2Fcom.openai.chat%2Fcallback' \
+        #       f'&scope=openid%20email%20profile%20offline_access%20model.request%20model.read%20organization.read%20offline' \
+        #       f'&response_type=code' \
+        #       f'&code_challenge={code_challenge}' \
+        #       f'&code_challenge_method=S256' \
+        #       f'&preauth_cookie={preauth_cookie}'
 
-        url += '&prompt=login'
+        # url += '&prompt=login'
+        url = (
+            f"https://auth.openai.com/api/accounts/authorize"
+            f"?scope=openid%20email%20profile%20offline_access%20model.request%20model.read%20organization.read%20organization.write"
+            f"&prompt=login"
+            f"&redirect_uri=com.openai.chat%3A%2F%2Fauth0.openai.com%2Fios%2Fcom.openai.chat%2Fcallback"
+            f"&code_challenge={code_challenge}"
+            f"&code_challenge_method=S256"
+            f"&client_id=app_WXrF1LSkiTtfYqiL6XtjygvX"
+            f"&state=xxxxxxx-XXHRvckQ-8ti7hV96faOTk80YTKKMz6LcMc"
+            f"&response_type=code"
+            f"&preauth_cookie={preauth_cookie}"
+            f"&audience=https%3A%2F%2Fapi.openai.com%2Fv1" 
+        )
         # print(url)
         # code = input('code: ')
         page = WebPage(chromium_options=self.co)
@@ -165,16 +178,17 @@ class TokenManager:
 
     def generate_access_token(self):
         self.ensure_refresh_token()
-        resp = requests.post('https://token.oaifree.com/api/auth/refresh', data={
-            'refresh_token': self.refresh_token
-        })
-        if resp.status_code == 200:
-            access_token = resp.json().get('access_token')
-            self.access_token = access_token
-            self.save_token()
-            return access_token
-        else:
-            return self.generate_access_token_old()
+        # resp = requests.post('https://token.oaifree.com/api/auth/refresh', data={
+        #     'refresh_token': self.refresh_token
+        # })
+        # if resp.status_code == 200:
+        #     access_token = resp.json().get('access_token')
+        #     self.access_token = access_token
+        #     self.save_token()
+        #     return access_token
+        # else:
+        #     return self.generate_access_token_old()
+        return self.generate_access_token_old()
 
     def generate_share_token(self, unique_name='share_token'):
         # share_token的有效期还取决于access_token
