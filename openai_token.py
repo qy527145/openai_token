@@ -218,9 +218,17 @@ class TokenManager:
             proxies=self.proxy)
         if resp.status_code == 200:
             access_token = resp.json().get('access_token')
+            refresh_token = resp.json().get("refresh_token")
             self.access_token = access_token
+            self.refresh_token = refresh_token
             self.save_token()
             return access_token
+        else:
+            self.refresh_token = None
+            self.save_token()
+            raise Exception(
+                f"获取access_token失败: {resp.status_code} {resp.text}"
+            )
 
     def load_token(self):
         if os.path.exists(self.storage_path):
