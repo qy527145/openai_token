@@ -1,4 +1,4 @@
-requests
+httpx
 DrissionPage
 click
 pyinstaller

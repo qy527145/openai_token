@@ -1,69 +1,95 @@
-# 本地使用
+# openai_token
 
-1. 首先克隆本项目
+本地管理 OpenAI 账号的 `refresh_token`、`access_token`、`sess_key`，并支持多账号存储。
+
+## 安装
+
 ```bash
-git clone https://github.com/qy527145/openai_token.git
-```
-
-2. 然后进入文件夹
-```bash
-cd openai_token
-```
-
-3. 然后使用pip下载所需Python包
-```python
 pip install -r requirements.txt
 ```
 
-# 食用方法
+## 存储格式
 
+默认会写入 `./tokens.json`，格式如下：
+
+```json
+{
+  "version": 2,
+  "default_account": "main",
+  "accounts": {
+    "main": {
+      "device_token": null,
+      "refresh_token": "rt_xxx",
+      "access_token": "eyJxxx",
+      "sess_key": {
+        "sess_key": "sess-xxxxxx",
+        "created": "2026-04-19 10:30:01",
+        "last_use": "2026-04-19 10:30:01"
+      },
+      "updated_at": "2026-04-19 10:30:01"
+    }
+  }
+}
 ```
-Usage: openai_token.py [OPTIONS]
 
-Options:
-  -p, --proxy TEXT     A http proxy str. (http://127.0.0.1:8080)
-  -r, --refresh_token  Get refresh token.
-  -a, --access_token   Get access token.
-  -s, --sess_key       Get sess key.
-  -f, --share-token    Get share key.
-  --help               Show this message and exit.
+旧的单账号文件会在下次读写时自动兼容成多账号结构。
+
+## 常用命令
+
+查看帮助：
+
+```bash
+python openai_token.py --help
 ```
 
-# 栗子：
+登录并保存一个账号：
 
+```bash
+python openai_token.py --account main --login
 ```
-<script/execute> -p http://127.0.0.1:1082 -rsaf
+
+登录并指定 `device_token`：
+
+```bash
+python openai_token.py --account main --device-token your_device_token --login
 ```
-会打印`refresh token` `sess key` `access token` `share_token`
 
+列出全部账号：
 
-### preauth_cookie如何生成？
+```bash
+python openai_token.py --list-accounts
+```
 
-1. 准备一台ios设备，想办法获取device token，device token是什么详见[官方文档](https://developer.apple.com/documentation/devicecheck/dcdevice/generatetoken(completionhandler:))，具体的获取方法看[这里](https://linux.do/t/topic/57756)
+获取指定账号的 token：
 
-2. 准备一个能访问openai的代理，发起以下请求即可得到preauth_cookie（device_id可自行修改）,就cookie而言是1小时后过期
+```bash
+python openai_token.py --account main -r
+python openai_token.py --account main -a
+python openai_token.py --account main -s
+python openai_token.py --account main -f
+```
 
-   ```python
-   rsp = requests.post(
-       'https://ios.chat.openai.com/backend-api/preauth_devicecheck',
-       json={
-           "bundle_id": "com.openai.chat",
-           "device_id": "12345678-042E-45C7-962F-AC725D0E7770",
-           "device_token": "your device token",
-           "request_flag": True
-       },
-       proxies={'all': 'http://127.0.0.1:8080'}
-   )
-   if rsp.status_code == 200:
-       print(rsp.cookies['_preauth_devicecheck'])
-   ```
+设置默认账号：
 
-   脚本中已添加相关逻辑，只需提前设置device_token即可
+```bash
+python openai_token.py --account main --set-default
+```
 
-3. 频繁使用其获取refresh token可能会封设备，原因可能是以下几个或之一：
+删除账号：
 
-   - 同一preauth_cookie多次用来获取refresh token
-   - 同一device token生成的preauth_cookie用于大量用户账号登录
-# 许可证
+```bash
+python openai_token.py --account main --remove-account
+```
 
-本项目使用[Apache License Version 2.0](LICENSE)许可证
+指定自定义证书：
+
+```bash
+python openai_token.py --ca-bundle C:\\path\\to\\corp-ca.pem --account main -a
+```
+
+## 说明
+
+- 网络层已从 `requests` 切换到 `httpx`。
+- HTTPS 校验默认使用系统信任链，不再全局 `verify=False`。
+- 如果代理是自签名证书，使用 `--ca-bundle` 传入 CA 文件。
+- `-s/--sess-key` 获取到的 `sess_key` 会自动持久化到账号存储中。
